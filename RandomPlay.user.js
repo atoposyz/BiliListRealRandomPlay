@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         收藏夹真实随机播放
 // @namespace    https://github.com/atoposyz/BiliListRealRandomPlay
-// @version      1.0.3
+// @version      1.5
 // @description  让b站收藏夹的随机播放真的在随机播放
 // @author       atoposyz
 // @match        https://www.bilibili.com/list/ml*
 // @icon         https://i0.hdslb.com/bfs/static/jinkela/long/images/favicon.ico
-// @grant        none
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @run-at       document-idle
 // @license      MIT
 // @downloadURL https://update.greasyfork.org/scripts/512477/%E6%94%B6%E8%97%8F%E5%A4%B9%E7%9C%9F%E5%AE%9E%E9%9A%8F%E6%9C%BA%E6%92%AD%E6%94%BE.user.js
 // @updateURL https://update.greasyfork.org/scripts/512477/%E6%94%B6%E8%97%8F%E5%A4%B9%E7%9C%9F%E5%AE%9E%E9%9A%8F%E6%9C%BA%E6%92%AD%E6%94%BE.meta.js
@@ -88,7 +90,7 @@
 		window.location.href = targetUrl;
 	}
 
-	window.addEventListener("load", function () {
+	function randomPlay() {
 		console.log(media_id);
 		url = url + media_id;
 		xhr.open("GET", url, true);
@@ -111,7 +113,7 @@
 
 		
 		let checkCount = 0; // 初始化检查次数
-		const maxChecks = 10; // 最大检查次数
+		const maxChecks = 15; // 最大检查次数
 		const interval = 500; // 检查间隔时间（毫秒）
 		const pos = getPos();
 		console.log("the pos is " + pos);
@@ -119,7 +121,7 @@
 		const checkInterval = setInterval(() => {
 			checkCount++; // 增加检查次数
 
-			const playButton = document.querySelector(".bpx-player-ctrl-btn");
+			const playButton = document.querySelector(".bpx-player-ctrl-play");
 
 			if (playButton) {
 				playButton.click(); // 模拟点击播放按钮
@@ -138,5 +140,96 @@
 		// 监听视频播放结束事件
 		videoElement.addEventListener("ended", performActionOnEnd);
 		console.log("正在监听视频播放进度");
-	});
+	}
+
+
+	
+    // 持久化存储键名
+    const STORAGE_KEY = 'custom_random_switch';
+    // 初始化状态（默认关闭）
+    let isActive = GM_getValue(STORAGE_KEY, false);
+
+    // 创建自定义按钮
+    function createCustomButton() {
+        const btn = document.createElement('div');
+        btn.id = 'custom-random-btn';
+        btn.textContent = isActive ? '▶' : '⏸';
+        btn.style.cssText = `
+            width: 24px;
+			height: 24px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: #2196F3;
+			color: white;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 12px;
+			padding: 0;
+			margin-left: 8px;
+			position: relative;
+        `;
+
+        // 点击事件：切换状态
+        btn.addEventListener('click', function() {
+			event.stopPropagation();
+            isActive = !isActive;
+            GM_setValue(STORAGE_KEY, isActive);
+            updateButtonStyle(btn, isActive);
+            toggleScriptLogic(isActive);
+        });
+
+        return btn;
+    }
+
+    // 更新按钮样式和文字
+    function updateButtonStyle(btn, isActive) {
+        btn.textContent = isActive ? '▶' : '⏸';
+    }
+
+    // 核心逻辑开关
+    function toggleScriptLogic(isActive) {
+        if (isActive) {
+            console.log('随机播放已开启');
+			randomPlay();
+        } else {
+            console.log('随机播放已关闭');
+        }
+    }
+	// --- 初始化 ---
+    function init() {
+        // 插入按钮
+		const headerLeft = document.querySelector('.header-left');
+		if (!headerLeft) {
+			console.error('未找到 .header-left 容器');
+			return;
+		}
+		const existingBtn = document.getElementById('custom-random-btn');
+        if (!existingBtn) {
+            const btn = createCustomButton();
+            headerLeft.appendChild(btn);
+        }
+        
+		// 初始化逻辑
+        toggleScriptLogic(isActive);
+    }
+
+    // 确保在DOM就绪后执行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // 监听页面动态跳转（如SPA）
+    let lastURL = location.href;
+    setInterval(() => {
+        if (location.href !== lastURL) {
+            lastURL = location.href;
+            init(); // 页面跳转后重新挂载按钮
+        }
+    }, 500);
+	
+
 })();
